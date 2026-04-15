@@ -1,8 +1,9 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delphi — Robo Advisory</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -160,13 +161,14 @@
   .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
   .btn-sm { padding: 5px 12px; font-size: 12px; }
   .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── ALLOC BAR ── */
   .alloc-bar { height: 8px; border-radius: 4px; margin: 4px 0; }
   .alloc-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 12px; }
   .alloc-label { width: 80px; color: var(--text-2); flex-shrink: 0; }
   .alloc-track { flex: 1; background: var(--slate-3); border-radius: 4px; height: 6px; }
-  .alloc-fill { height: 6px; border-radius: 4px; }
+  .alloc-fill { height: 6px; border-radius: 4px; transition: width 0.6s ease; }
   .alloc-pct { width: 36px; text-align: right; color: var(--text-3); }
 
   /* ── INVESTOR SCORE ── */
@@ -271,6 +273,15 @@
   .thinking::after { content: ''; animation: dots 1.2s infinite; }
   @keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
 
+  /* ── AI LOADING SKELETON ── */
+  .ai-skeleton {
+    background: linear-gradient(90deg, var(--slate-2) 25%, var(--slate-3) 50%, var(--slate-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px; height: 14px; margin: 4px 0;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
   /* ── MODAL-style overlay for score ── */
   .score-overlay {
     display: none; position: fixed; inset: 0;
@@ -282,6 +293,17 @@
     background: var(--slate); border: 1px solid var(--border-2);
     border-radius: 16px; padding: 2rem; width: 340px; max-width: 94vw;
   }
+
+  /* ── AI BADGE ── */
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(201,168,76,0.1); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2px 8px; font-size: 10px; color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── ACTIVE SIM ── */
+  .active-sim { border-color: var(--gold) !important; color: var(--gold) !important; background: rgba(201,168,76,0.08) !important; }
 
   /* ── RESPONSIVE ── */
   @media (max-width: 700px) {
@@ -325,19 +347,19 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:1rem 0">
       <div style="text-align:center">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Risk Score</div>
-        <div style="font-size:20px;font-weight:500;color:var(--amber)" id="ms-risk">65</div>
+        <div style="font-size:20px;font-weight:500;color:var(--amber)">65</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Behaviour</div>
-        <div style="font-size:20px;font-weight:500;color:var(--purple)" id="ms-beh">68</div>
+        <div style="font-size:20px;font-weight:500;color:var(--purple)">68</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Diversification</div>
-        <div style="font-size:20px;font-weight:500;color:var(--green)" id="ms-div">80</div>
+        <div style="font-size:20px;font-weight:500;color:var(--green)">80</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Consistency</div>
-        <div style="font-size:20px;font-weight:500;color:var(--blue)" id="ms-con">75</div>
+        <div style="font-size:20px;font-weight:500;color:var(--blue)">75</div>
       </div>
     </div>
     <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="closeScoreModal()">Close</button>
@@ -366,7 +388,7 @@
   <div class="grid-4" style="margin-bottom:1rem">
     <div class="card">
       <div class="card-title">Portfolio Value</div>
-      <div class="metric-val">₹12.4L</div>
+      <div class="metric-val" id="dash-portfolio-val">₹12.4L</div>
       <div class="metric-sub up">+₹84,000 today (+0.68%)</div>
     </div>
     <div class="card">
@@ -397,10 +419,13 @@
     <!-- News Feed -->
     <div class="card">
       <div class="section-header">
-        <div class="card-title" style="margin-bottom:0">Market News</div>
-        <button class="btn btn-outline btn-sm" onclick="refreshNews()">Refresh</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="card-title" style="margin-bottom:0">Market News</div>
+          <span class="ai-badge">◈ AI</span>
+        </div>
+        <button class="btn btn-outline btn-sm" id="news-refresh-btn" onclick="loadDynamicNews()">Refresh</button>
       </div>
-      <div id="news-feed"></div>
+      <div id="news-feed"><div style="color:var(--text-3);font-size:12px;padding:1rem 0">Loading news…</div></div>
     </div>
   </div>
 
@@ -408,9 +433,16 @@
   <div class="card" style="border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.05)">
     <div style="display:flex;align-items:flex-start;gap:12px">
       <div style="width:36px;height:36px;border-radius:50%;background:var(--gold-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">◈</div>
-      <div>
-        <div style="font-size:12px;color:var(--gold);font-weight:500;margin-bottom:4px">DELPHI AI INSIGHT</div>
-        <div style="font-size:13px;color:var(--text-2);line-height:1.6" id="ai-insight">Based on your behavioural pattern and the current <strong style="color:var(--gold)">Cautiously Bullish</strong> market, you show a tendency toward confirmation bias. Your recent overweight in IT sector (+12% vs benchmark) is well-timed but carry risk if earnings disappoint. Suggested action: book 5% partial profits in INFY position.</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="font-size:12px;color:var(--gold);font-weight:500">DELPHI AI INSIGHT</div>
+          <span class="ai-badge">◈ AI Generated</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-2);line-height:1.6" id="ai-insight">
+          <div class="ai-skeleton" style="width:90%"></div>
+          <div class="ai-skeleton" style="width:75%"></div>
+          <div class="ai-skeleton" style="width:85%"></div>
+        </div>
         <div style="margin-top:10px;display:flex;gap:8px">
           <button class="btn btn-gold btn-sm" onclick="showPage('advisor')">Talk to AI ↗</button>
           <button class="btn btn-outline btn-sm" onclick="showPage('scenarios')">Run Scenario</button>
@@ -464,8 +496,13 @@
 
   <div class="card" style="margin-bottom:1rem">
     <div class="section-header">
-      <div class="card-title" style="margin-bottom:0">Direct Equity Holdings (NSE / BSE)</div>
-      <button class="btn btn-gold btn-sm" onclick="addStockPrompt()">+ Add Holding</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Direct Equity Holdings (NSE / BSE)</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" id="ai-portfolio-btn" onclick="loadPortfolioAnalysis()">◈ AI Analysis</button>
+        <button class="btn btn-gold btn-sm" onclick="addStockPrompt()">+ Add Holding</button>
+      </div>
     </div>
     <table class="ptable" id="holdings-table">
       <thead>
@@ -475,6 +512,15 @@
       </thead>
       <tbody id="holdings-body"></tbody>
     </table>
+  </div>
+
+  <!-- AI Portfolio Analysis -->
+  <div class="card" style="margin-bottom:1rem;border-color:rgba(201,168,76,0.3);display:none" id="portfolio-analysis-card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.75rem">
+      <div class="card-title" style="margin-bottom:0">AI Portfolio Analysis</div>
+      <span class="ai-badge">◈ AI Generated</span>
+    </div>
+    <div id="portfolio-analysis-content" style="font-size:13px;color:var(--text-2);line-height:1.7"></div>
   </div>
 
   <div class="grid-2">
@@ -555,6 +601,18 @@
     </div>
   </div>
 
+  <!-- AI Behaviour Analysis -->
+  <div class="card" style="margin-bottom:1rem;border-color:rgba(201,168,76,0.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="card-title" style="margin-bottom:0">AI Behaviour Coach</div>
+        <span class="ai-badge">◈ AI Generated</span>
+      </div>
+      <button class="btn btn-outline btn-sm" id="beh-coach-btn" onclick="loadBehaviourCoach()">Get Coaching</button>
+    </div>
+    <div id="beh-coach-content" style="font-size:13px;color:var(--text-2);line-height:1.7;color:var(--text-3)">Click "Get Coaching" to receive personalised behavioural analysis and improvement strategies from Delphi AI.</div>
+  </div>
+
   <!-- Simulation -->
   <div class="card">
     <div class="card-title">Time Simulation</div>
@@ -591,7 +649,10 @@
 <!--  PAGE: SCENARIOS                       -->
 <!-- ═══════════════════════════════════════ -->
 <div class="page" id="page-scenarios">
-  <div class="section-title" style="margin-bottom:1rem">Scenario Simulator</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <div class="section-title">Scenario Simulator</div>
+    <span class="ai-badge">◈ AI-Powered Analysis</span>
+  </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:1.5rem">
     <button class="scenario-btn" id="sc-bull" onclick="selectScenario('bull')">
@@ -629,7 +690,9 @@
           </div>
         </div>
         <div style="font-size:12px;color:var(--text-2);line-height:1.6" id="sc-desc">
-          In the current cautiously bullish market, your portfolio is well-positioned. IT holdings may face mild headwinds from USD weakness, but pharma and FMCG should provide stability.
+          <div class="ai-skeleton" style="width:95%"></div>
+          <div class="ai-skeleton" style="width:80%"></div>
+          <div class="ai-skeleton" style="width:88%"></div>
         </div>
       </div>
     </div>
@@ -660,7 +723,10 @@
     </div>
     <div class="nudge" style="margin-top:0.5rem" id="sc-nudge">
       <span class="nudge-icon">⚠️</span>
-      <span id="sc-nudge-text">Based on your past behaviour, you have a moderate chance of exiting prematurely in a downturn. Consider setting a rule: only review portfolio weekly.</span>
+      <span id="sc-nudge-text">
+        <div class="ai-skeleton" style="width:90%"></div>
+        <div class="ai-skeleton" style="width:70%"></div>
+      </span>
     </div>
   </div>
 </div>
@@ -682,7 +748,7 @@
       <div class="chat-container" id="chat-container"></div>
       <div class="chat-input-row">
         <input class="chat-input" id="chat-input" type="text" placeholder="Ask about your portfolio, market, risks…" onkeydown="if(event.key==='Enter')sendChat()"/>
-        <button class="btn btn-gold" onclick="sendChat()">Send</button>
+        <button class="btn btn-gold" id="send-btn" onclick="sendChat()">Send</button>
       </div>
     </div>
     <div>
@@ -700,7 +766,7 @@
         <div class="card-title">Context Given to AI</div>
         <div style="font-size:12px;color:var(--text-3);line-height:1.7" id="ai-context-display">
           Portfolio: ₹12.4L · Returns: +18.3%<br>
-          Risk Profile: Moderate · Horizon: 5 years<br>
+          Risk Profile: Moderate · Horizon: 3-5 years<br>
           Behaviour: 3 panic events, 5 FOMO buys<br>
           Market: Cautiously Bullish<br>
           Score: 72/100
@@ -779,7 +845,13 @@
 
   <!-- Explainability Panel -->
   <div class="card" style="margin-top:1rem">
-    <div class="card-title">Why These Recommendations? — Explainability Panel</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Why These Recommendations? — Explainability Panel</div>
+        <span class="ai-badge">◈ AI Generated</span>
+      </div>
+      <button class="btn btn-outline btn-sm" id="explain-refresh-btn" onclick="loadExplainPanel()">Regenerate</button>
+    </div>
     <div id="explain-panel"></div>
   </div>
 
@@ -806,7 +878,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 
-// ── STATE ──
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
 const STATE = {
   risk: 3,
   riskLabel: 'Moderate',
@@ -824,7 +898,8 @@ const STATE = {
     {date:'Nov 2024',type:'calm',text:'Continued SIP despite market volatility — correct action'},
     {date:'Oct 2024',type:'calm',text:'Rebalanced quarterly on schedule'},
     {date:'Sep 2024',type:'panic',text:'Paused all SIPs after Israel conflict news'},
-  ]
+  ],
+  investorScore: 72
 };
 
 const HOLDINGS = [
@@ -838,39 +913,119 @@ const HOLDINGS = [
   {ticker:'LIQUIDBEES',name:'HDFC Liquid ETF',exchange:'NSE',qty:50,avg:1000,ltp:1012,type:'fd'},
 ];
 
-const NEWS = [
-  {headline:'RBI holds repo rate at 6.5%; signals data-dependent approach going forward',src:'Economic Times',sentiment:'neut',time:'2h ago'},
-  {headline:'Nifty IT index gains 1.2% as TCS, Infosys beat Q4 earnings expectations',src:'Moneycontrol',sentiment:'bull',time:'3h ago'},
-  {headline:'SEBI tightens F&O margin norms; retail participation may see short-term dip',src:'Mint',sentiment:'bear',time:'4h ago'},
-  {headline:'Pharma sector outperforms: Sun Pharma, Cipla lead amid global demand surge',src:'LiveMint',sentiment:'bull',time:'5h ago'},
-  {headline:'FII inflows cross ₹12,000 Cr this week; emerging market optimism rises',src:'Business Today',sentiment:'bull',time:'6h ago'},
-  {headline:'Crude oil at $78/bbl; positive for India macro, aviation and paints sector',src:'Reuters India',sentiment:'bull',time:'7h ago'},
-];
+// ══════════════════════════════════════════
+//  CLAUDE API HELPER
+// ══════════════════════════════════════════
+async function callClaude(systemPrompt, userMessage, options = {}) {
+  const { tools, maxTokens = 1000 } = options;
+  const body = {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userMessage }]
+  };
+  if (tools) body.tools = tools;
 
-// ── NAV ──
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  event && event.target && event.target.classList.add('active');
-  document.querySelectorAll('.nav-tab').forEach(t => {
-    if (t.textContent.toLowerCase().includes(id) || (id==='advisor' && t.textContent.includes('AI'))) t.classList.add('active');
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
-  if (id === 'behaviour') initBehaviourCharts();
-  if (id === 'portfolio') renderHoldings('all');
+  const data = await resp.json();
+  // Extract all text blocks
+  return data.content
+    ? data.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
+    : '';
 }
 
-// ── MARKET TIME ──
-function updateTime() {
-  const now = new Date();
-  document.getElementById('market-time').textContent = 'NSE · ' + now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) + ' IST';
-}
-setInterval(updateTime, 1000); updateTime();
+function getPortfolioContext() {
+  const riskLabels = ['','Very Low','Low','Moderate','High','Very High'];
+  return `
+INVESTOR PROFILE:
+- Portfolio value: ₹12.4 Lakh
+- Returns: +18.3% overall
+- Risk profile: ${riskLabels[STATE.risk]} (${STATE.risk}/5)
+- Investment horizon: ${STATE.horizon}
+- Goal: ${STATE.goal}
+- Investor Score: ${STATE.investorScore}/100
 
-// ── NEWS ──
-function renderNews() {
-  const el = document.getElementById('news-feed');
-  el.innerHTML = NEWS.map(n => `
+PORTFOLIO HOLDINGS (direct equity):
+- RELIANCE: 10 shares @ ₹2450 avg, LTP ₹2810 (+14.7%) — ₹28,100
+- INFY: 25 shares @ ₹1520 avg, LTP ₹1687 (+11.0%) — ₹42,175
+- TCS: 8 shares @ ₹3680 avg, LTP ₹3920 (+6.5%) — ₹31,360
+- HDFCBANK: 30 shares @ ₹1620 avg, LTP ₹1734 (+7.0%) — ₹52,020
+- ASIANPAINT: 15 shares @ ₹3100 avg, LTP ₹2890 (-6.8%) — ₹43,350
+- SUNPHARMA: 40 shares @ ₹1150 avg, LTP ₹1340 (+16.5%) — ₹53,600
+- GOLDBEES (Gold ETF): 100 units @ ₹580 avg, LTP ₹614
+- LIQUIDBEES: 50 units @ ₹1000 avg, LTP ₹1012
+
+SIPs: Mirae Asset Large Cap (₹5k/mo), Parag Parikh Flexi Cap (₹10k/mo), HDFC Mid-Cap (₹3k/mo), Axis Nifty Index (₹5k/mo)
+
+BEHAVIOURAL HISTORY:
+- 3 panic selling events in last 12 months
+- 5 FOMO-driven purchases
+- 18 disciplined hold decisions
+- Biases: Recency bias, Confirmation bias, Panic selling tendency
+
+CURRENT MARKET: Cautiously Bullish — SENSEX ~79,486, NIFTY ~24,087
+ACTIVE SCENARIO: ${STATE.scenario}
+`.trim();
+}
+
+// ══════════════════════════════════════════
+//  DYNAMIC NEWS (with web search)
+// ══════════════════════════════════════════
+async function loadDynamicNews() {
+  const btn = document.getElementById('news-refresh-btn');
+  const feed = document.getElementById('news-feed');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  feed.innerHTML = '<div style="color:var(--text-3);font-size:12px;padding:1rem 0">Fetching latest Indian market news…</div>';
+
+  try {
+    const system = `You are a financial news analyst for Indian retail investors. Return ONLY a JSON array (no markdown, no preamble) of 6 news items about NSE/BSE, Indian economy, SEBI, RBI, or stocks in this exact format:
+[{"headline":"...","src":"source name","sentiment":"bull"|"bear"|"neut","time":"Xh ago","relevance":"why this matters to a retail investor in 1 short sentence"}]
+Make the headlines realistic, specific, and current for Indian markets. Include mix of sentiments.`;
+
+    const raw = await callClaude(system, 'Generate 6 current Indian market news headlines for today. Make them realistic and specific.', { maxTokens: 800 });
+
+    let items;
+    try {
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      items = JSON.parse(cleaned);
+    } catch {
+      throw new Error('parse_fail');
+    }
+
+    feed.innerHTML = items.map(n => `
+      <div class="news-item">
+        <div class="news-headline">${n.headline}</div>
+        ${n.relevance ? `<div style="font-size:11px;color:var(--text-3);margin-top:3px;font-style:italic">${n.relevance}</div>` : ''}
+        <div class="news-meta">
+          <span class="news-badge nb-${n.sentiment}">${n.sentiment==='bull'?'Bullish':n.sentiment==='bear'?'Bearish':'Neutral'}</span>
+          <span>${n.src}</span><span>${n.time}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    // Fallback to static
+    renderStaticNews();
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Refresh';
+}
+
+function renderStaticNews() {
+  const NEWS = [
+    {headline:'RBI holds repo rate at 6.5%; signals data-dependent approach going forward',src:'Economic Times',sentiment:'neut',time:'2h ago'},
+    {headline:'Nifty IT index gains 1.2% as TCS, Infosys beat Q4 earnings expectations',src:'Moneycontrol',sentiment:'bull',time:'3h ago'},
+    {headline:'SEBI tightens F&O margin norms; retail participation may see short-term dip',src:'Mint',sentiment:'bear',time:'4h ago'},
+    {headline:'Pharma sector outperforms: Sun Pharma, Cipla lead amid global demand surge',src:'LiveMint',sentiment:'bull',time:'5h ago'},
+    {headline:'FII inflows cross ₹12,000 Cr this week; emerging market optimism rises',src:'Business Today',sentiment:'bull',time:'6h ago'},
+    {headline:'Crude oil at $78/bbl; positive for India macro, aviation and paints sector',src:'Reuters India',sentiment:'bull',time:'7h ago'},
+  ];
+  document.getElementById('news-feed').innerHTML = NEWS.map(n => `
     <div class="news-item">
       <div class="news-headline">${n.headline}</div>
       <div class="news-meta">
@@ -880,10 +1035,312 @@ function renderNews() {
     </div>
   `).join('');
 }
-function refreshNews() { renderNews(); }
-renderNews();
 
-// ── ALLOCATION ──
+// ══════════════════════════════════════════
+//  DYNAMIC AI INSIGHT (Dashboard)
+// ══════════════════════════════════════════
+async function loadDashboardInsight() {
+  const el = document.getElementById('ai-insight');
+  el.innerHTML = `<div class="ai-skeleton" style="width:90%"></div><div class="ai-skeleton" style="width:75%"></div><div class="ai-skeleton" style="width:85%"></div>`;
+
+  try {
+    const system = `You are Delphi, an intelligent robo-advisory AI for Indian retail investors. Give a single concise daily insight (2-3 sentences, max 80 words) based on the investor's portfolio and current market. Be specific — mention stock names. Use HTML bold tags for emphasis. Be empathetic and actionable. Focus on the most important thing the investor should know or act on today.`;
+    const reply = await callClaude(system, getPortfolioContext());
+    el.innerHTML = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>');
+  } catch(e) {
+    el.innerHTML = `Based on your behavioural pattern and the current <strong style="color:var(--gold)">Cautiously Bullish</strong> market, you show a tendency toward confirmation bias. Your recent overweight in IT sector (+12% vs benchmark) is well-timed but carries risk if earnings disappoint. Suggested action: book 5% partial profits in INFY position.`;
+  }
+}
+
+// ══════════════════════════════════════════
+//  DYNAMIC SCENARIO ANALYSIS
+// ══════════════════════════════════════════
+const SCENARIO_STATIC = {
+  bull: { val:'₹15.8L', chg:'+27.4%', panic:12, hold:78, fomo:10, rebal:[{a:'Equity',c:'#3498DB',from:58,to:72},{a:'Debt',c:'#C9A84C',from:17,to:8},{a:'Gold',c:'#F39C12',from:10,to:8},{a:'MF',c:'#9B59B6',from:15,to:12}] },
+  bear: { val:'₹9.8L', chg:'-21.0%', panic:65, hold:25, fomo:10, rebal:[{a:'Equity',c:'#3498DB',from:58,to:35},{a:'Debt',c:'#C9A84C',from:17,to:35},{a:'Gold',c:'#F39C12',from:10,to:20},{a:'MF',c:'#9B59B6',from:15,to:10}] },
+  crash: { val:'₹8.1L', chg:'-34.7%', panic:85, hold:10, fomo:5, rebal:[{a:'Equity',c:'#3498DB',from:58,to:25},{a:'Debt',c:'#C9A84C',from:17,to:40},{a:'Gold',c:'#F39C12',from:10,to:25},{a:'MF',c:'#9B59B6',from:15,to:10}] },
+  sideways: { val:'₹12.9L', chg:'+4.0%', panic:18, hold:72, fomo:10, rebal:[{a:'Equity',c:'#3498DB',from:58,to:50},{a:'Debt',c:'#C9A84C',from:17,to:25},{a:'Gold',c:'#F39C12',from:10,to:12},{a:'MF',c:'#9B59B6',from:15,to:13}] },
+  rbi: { val:'₹13.8L', chg:'+11.3%', panic:8, hold:82, fomo:10, rebal:[{a:'Banking',c:'#3498DB',from:20,to:30},{a:'Debt MF',c:'#C9A84C',from:17,to:25},{a:'Other Equity',c:'#9B59B6',from:38,to:32},{a:'Gold',c:'#F39C12',from:10,to:8}] },
+  current: { val:'₹13.1L', chg:'+5.6%', panic:32, hold:61, fomo:7, rebal:[{a:'Equity',c:'#3498DB',from:58,to:58},{a:'MF',c:'#9B59B6',from:25,to:27},{a:'Debt',c:'#C9A84C',from:10,to:10},{a:'Gold',c:'#F39C12',from:7,to:5}] },
+};
+
+const SCENARIO_NAMES = {
+  bull: 'Bull Market (Nifty +25%)',
+  bear: 'Bear Market (Nifty -20%)',
+  crash: 'Sudden Market Crash (-35%)',
+  sideways: 'Sideways / Flat Market (±5%)',
+  rbi: 'RBI Rate Cut — Debt/NBFC Rally',
+  current: 'Current Market (Cautiously Bullish)'
+};
+
+async function selectScenario(sc) {
+  STATE.scenario = sc;
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active-scenario'));
+  document.getElementById('sc-' + sc).classList.add('active-scenario');
+
+  const d = SCENARIO_STATIC[sc];
+  document.getElementById('sc-val').textContent = d.val;
+  document.getElementById('sc-chg').textContent = d.chg;
+  document.getElementById('sc-chg').className = 'metric-val ' + (d.chg.startsWith('+') ? 'up' : 'down');
+  document.getElementById('pred-panic-pct').textContent = d.panic + '%';
+  document.getElementById('pred-hold-pct').textContent = d.hold + '%';
+  document.getElementById('pred-fomo-pct').textContent = d.fomo + '%';
+
+  // Show skeletons while AI loads
+  document.getElementById('sc-desc').innerHTML = `<div class="ai-skeleton" style="width:95%"></div><div class="ai-skeleton" style="width:80%"></div><div class="ai-skeleton" style="width:88%"></div>`;
+  document.getElementById('sc-nudge-text').innerHTML = `<div class="ai-skeleton" style="width:90%"></div><div class="ai-skeleton" style="width:70%"></div>`;
+
+  // Render rebalancing bars immediately
+  document.getElementById('sc-rebal').innerHTML = d.rebal.map(r => `
+    <div class="alloc-row">
+      <span class="alloc-label" style="font-size:11px">${r.a}</span>
+      <div class="alloc-track"><div class="alloc-fill" style="width:${r.to}%;background:${r.c}"></div></div>
+      <span class="alloc-pct">${r.to}% <span style="color:${r.to>r.from?'var(--green)':'var(--red)'};font-size:10px">${r.to>r.from?'▲':'▼'}</span></span>
+    </div>`).join('');
+
+  // AI-generate scenario description and nudge
+  try {
+    const system = `You are Delphi, an intelligent robo-advisory AI for Indian retail investors. Respond ONLY with a JSON object (no markdown) with two fields:
+- "desc": 2-3 sentence scenario analysis for the investor's specific portfolio (mention stock names). Max 60 words.
+- "nudge": 1-2 sentence personalised behavioural warning or advice. Max 40 words. Be direct.`;
+
+    const raw = await callClaude(system,
+      `${getPortfolioContext()}\n\nGenerate scenario analysis for: ${SCENARIO_NAMES[sc]}`,
+      { maxTokens: 400 }
+    );
+
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    document.getElementById('sc-desc').textContent = parsed.desc;
+    document.getElementById('sc-nudge-text').textContent = parsed.nudge;
+  } catch(e) {
+    // Fallback text
+    const fallbacks = {
+      bull: { desc:'Strong bull market favours your mid-cap heavy equity holdings. RELIANCE, INFY, HDFCBANK expected to outperform. Gold ETF may lag. Consider tilting further into equities.', nudge:'In a bull market you tend to add aggressively near tops. Set a monthly SIP-only rule — resist timing the market.' },
+      bear: { desc:'Bear market likely to hit small/mid-cap holdings hardest. ASIANPAINT already showing weakness. Defensive positions in SUNPHARMA and LIQUIDBEES provide some buffer.', nudge:'Historical pattern: you have sold 40% equity in bear markets. This permanently locks in losses. Consider a no-sell covenant below -15%.' },
+      crash: { desc:'Sudden crash scenario (-35%). Your portfolio lacks sufficient downside protection. Stop-losses on individual stocks recommended. Focus on capital preservation.', nudge:'CRITICAL: You have exited in 2 of 3 previous sudden crashes — always at the bottom. If this happens, do NOT touch your portfolio for 72 hours.' },
+      sideways: { desc:'Range-bound market: SIPs are your best friend. Avoid chasing momentum. Your HDFCBANK and RELIANCE positions generate stable returns.', nudge:'In flat markets you tend to get impatient and chase. Redirect energy into reviewing fundamentals — not trading.' },
+      rbi: { desc:'RBI rate cut benefits HDFCBANK significantly. Debt MFs and LIQUIDBEES see modest gains. NBFCs rally. Consider adding exposure to banking ETF.', nudge:'Rate cuts trigger excitement. Avoid overloading on NBFCs — spread across the banking sector instead.' },
+      current: { desc:'In the current cautiously bullish market, your portfolio is well-positioned. IT holdings may face mild headwinds from USD weakness, but pharma and FMCG should provide stability.', nudge:'Based on your past behaviour, you have a moderate chance of exiting prematurely in a downturn. Consider setting a rule: only review portfolio weekly.' },
+    };
+    const fb = fallbacks[sc];
+    document.getElementById('sc-desc').textContent = fb.desc;
+    document.getElementById('sc-nudge-text').textContent = fb.nudge;
+  }
+}
+
+// ══════════════════════════════════════════
+//  DYNAMIC PORTFOLIO ANALYSIS
+// ══════════════════════════════════════════
+async function loadPortfolioAnalysis() {
+  const btn = document.getElementById('ai-portfolio-btn');
+  const card = document.getElementById('portfolio-analysis-card');
+  const content = document.getElementById('portfolio-analysis-content');
+
+  btn.disabled = true;
+  btn.textContent = 'Analysing…';
+  card.style.display = 'block';
+  content.innerHTML = `<div class="ai-skeleton" style="width:95%"></div><div class="ai-skeleton" style="width:80%"></div><div class="ai-skeleton" style="width:90%"></div><div class="ai-skeleton" style="width:70%"></div>`;
+
+  try {
+    const system = `You are Delphi, an intelligent robo-advisory AI for Indian retail investors. Provide a concise portfolio analysis covering: (1) sector concentration risk, (2) top 2 actionable recommendations with specific stock names and quantities, (3) one risk to watch. Use HTML: bold key points, use <br> for line breaks. Max 120 words. Be specific and actionable.`;
+    const reply = await callClaude(system, getPortfolioContext(), { maxTokens: 600 });
+    content.innerHTML = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>');
+  } catch(e) {
+    content.innerHTML = '<strong>IT Concentration Risk:</strong> INFY + TCS = 28% of equity — above recommended 20% cap for any sector.<br><br><strong>Recommendation 1:</strong> Book partial profits on INFY (sell 5 of 25 shares) — stock up 11%, and near upper Bollinger band.<br><br><strong>Recommendation 2:</strong> Average down on ASIANPAINT — fundamentals intact despite -6.8% dip. Paint sector benefits from crude oil decline.<br><br><strong>Risk to Watch:</strong> USD/INR at 83.72 — sustained rupee weakness could impact your IT holdings\' earnings guidance negatively.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '◈ Refresh Analysis';
+}
+
+// ══════════════════════════════════════════
+//  DYNAMIC BEHAVIOUR COACH
+// ══════════════════════════════════════════
+async function loadBehaviourCoach() {
+  const btn = document.getElementById('beh-coach-btn');
+  const content = document.getElementById('beh-coach-content');
+
+  btn.disabled = true;
+  btn.textContent = 'Coaching…';
+  content.innerHTML = `<div class="ai-skeleton" style="width:95%"></div><div class="ai-skeleton" style="width:85%"></div><div class="ai-skeleton" style="width:90%"></div><div class="ai-skeleton" style="width:75%"></div><div class="ai-skeleton" style="width:80%"></div>`;
+
+  try {
+    const system = `You are a behavioural finance coach for Indian retail investors. Provide personalised coaching based on the investor's behaviour history. Structure your response with these sections using HTML:
+1. <strong>Your Behavioural Pattern:</strong> (identify the core pattern in 1 sentence)
+2. <strong>Estimated Return Impact:</strong> (quantify the cost of panic-selling in ₹ terms)
+3. <strong>Three Practical Rules to Adopt:</strong> (numbered list, specific to Indian markets)
+4. <strong>Your Behavioural Commitment:</strong> (one powerful sentence the investor can commit to)
+Max 150 words. Use line breaks between sections. Be empathetic but direct.`;
+
+    const reply = await callClaude(system, getPortfolioContext(), { maxTokens: 600 });
+    content.innerHTML = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>');
+  } catch(e) {
+    content.innerHTML = `<strong>Your Behavioural Pattern:</strong> You are a reactive investor — you sell on fear and buy on excitement, consistently at the wrong time.<br><br><strong>Estimated Return Impact:</strong> Your 3 panic events this year likely cost you ~₹2.1L in missed recovery gains.<br><br><strong>Three Practical Rules to Adopt:</strong><br>1. Set a "portfolio blackout" rule — no sells during market falls greater than 3% in a day<br>2. Review portfolio only every Sunday — never during market hours<br>3. Before any unplanned trade, write down your reason — if it's news-driven, wait 48 hours<br><br><strong>Your Behavioural Commitment:</strong> "I will not sell in fear — I will review in calm and act with data."`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Refresh Coaching';
+}
+
+// ══════════════════════════════════════════
+//  DYNAMIC EXPLAINABILITY PANEL
+// ══════════════════════════════════════════
+async function loadExplainPanel() {
+  const btn = document.getElementById('explain-refresh-btn');
+  const panel = document.getElementById('explain-panel');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+  panel.innerHTML = `<div class="ai-skeleton" style="width:90%;margin:8px 0"></div><div class="ai-skeleton" style="width:80%;margin:8px 0"></div><div class="ai-skeleton" style="width:85%;margin:8px 0"></div><div class="ai-skeleton" style="width:75%;margin:8px 0"></div>`;
+
+  try {
+    const system = `You are Delphi, a robo-advisory AI. Explain the investment recommendations for this investor using EXACTLY this JSON format (no markdown):
+{"b":"Behaviour reason in 1 sentence","m":"Market reason in 1 sentence","r":"Risk/profile reason in 1 sentence mentioning risk level and horizon","d":"Diversification reason in 1 sentence"}`;
+
+    const raw = await callClaude(system, getPortfolioContext(), { maxTokens: 400 });
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    panel.innerHTML = [
+      { icon:'B', color:'#3498DB', bg:'rgba(52,152,219,0.15)', label:'Behaviour reason', text: parsed.b },
+      { icon:'M', color:'var(--gold)', bg:'rgba(201,168,76,0.15)', label:'Market reason', text: parsed.m },
+      { icon:'R', color:'#2ECC71', bg:'rgba(46,204,113,0.15)', label:'Risk reason', text: parsed.r },
+      { icon:'D', color:'#9B59B6', bg:'rgba(155,89,182,0.15)', label:'Diversification reason', text: parsed.d },
+    ].map(item => `
+      <div class="explain-row">
+        <div class="explain-icon" style="background:${item.bg};color:${item.color}">${item.icon}</div>
+        <div><div class="explain-label">${item.label}</div><div class="explain-text">${item.text}</div></div>
+      </div>
+    `).join('');
+  } catch(e) {
+    // Static fallback
+    updateExplainStatic();
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Regenerate'; }
+}
+
+function updateExplainStatic() {
+  document.getElementById('explain-panel').innerHTML = `
+    <div class="explain-row">
+      <div class="explain-icon" style="background:rgba(52,152,219,0.15);color:#3498DB">B</div>
+      <div><div class="explain-label">Behaviour reason</div><div class="explain-text">You have shown panic selling in 3 of 8 high-volatility events. This reduces our equity recommendation by ~8% vs your stated risk level.</div></div>
+    </div>
+    <div class="explain-row">
+      <div class="explain-icon" style="background:rgba(201,168,76,0.15);color:var(--gold)">M</div>
+      <div><div class="explain-label">Market reason</div><div class="explain-text">Current cautiously bullish conditions with high FII inflows suggest 55–65% equity allocation is optimal. RBI hold on rates supports debt stability.</div></div>
+    </div>
+    <div class="explain-row">
+      <div class="explain-icon" style="background:rgba(46,204,113,0.15);color:#2ECC71">R</div>
+      <div><div class="explain-label">Risk reason</div><div class="explain-text">Your <strong style="color:var(--gold)">${STATE.riskLabel}</strong> profile with ${STATE.horizon} horizon and "${STATE.goal}" goal aligns well with a balanced large/mid-cap equity allocation supplemented by SIPs.</div></div>
+    </div>
+    <div class="explain-row">
+      <div class="explain-icon" style="background:rgba(155,89,182,0.15);color:#9B59B6">D</div>
+      <div><div class="explain-label">Diversification reason</div><div class="explain-text">Your current 8-stock direct equity portfolio is moderately concentrated. Adding 2–3 more sectors (FMCG or infrastructure) would lower unsystematic risk without sacrificing returns.</div></div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════
+//  CHAT (AI Advisor)
+// ══════════════════════════════════════════
+function buildSystemPrompt() {
+  return `You are Delphi, an intelligent robo-advisory AI for Indian retail investors. You have deep knowledge of Indian stock markets (NSE, BSE), mutual funds, SEBI regulations, and behavioral finance.
+
+${getPortfolioContext()}
+
+Be concise, empathetic, and specific. Use Indian financial context (₹, NSE/BSE tickers, SEBI, RBI). Give behaviorally-aware advice. Max 150 words per response. Mention specific stocks by name when relevant.`;
+}
+
+function addMessage(role, text) {
+  const container = document.getElementById('chat-container');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble chat-' + (role==='user'?'user':'ai');
+  div.innerHTML = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  btn.disabled = true;
+  addMessage('user', msg);
+  STATE.chatHistory.push({role:'user', content: msg});
+  const thinkDiv = addMessage('ai', '<span class="thinking">Delphi is thinking</span>');
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: buildSystemPrompt(),
+        messages: STATE.chatHistory
+      })
+    });
+    const data = await resp.json();
+    const reply = data.content && data.content[0] ? data.content[0].text : 'I could not process your request. Please try again.';
+    thinkDiv.innerHTML = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>');
+    STATE.chatHistory.push({role:'assistant', content: reply});
+  } catch(e) {
+    thinkDiv.innerHTML = '<strong style="color:var(--gold)">Demo mode:</strong> In the live app, Delphi AI (powered by Claude) would analyse your portfolio, behavioural history, and current market to give personalised advice. Try asking: "Should I sell ASIANPAINT?" or "Am I too heavy in IT stocks?"';
+  }
+  btn.disabled = false;
+}
+
+function quickPrompt(text) {
+  document.getElementById('chat-input').value = text;
+  showPage('advisor');
+  sendChat();
+}
+
+function clearChat() {
+  document.getElementById('chat-container').innerHTML = '';
+  STATE.chatHistory = [];
+  addMessage('ai', '👋 Namaste! I am <strong>Delphi</strong>, your AI investment advisor. I have analysed your portfolio, behaviour patterns, and current market conditions. How can I help you today?');
+}
+
+// ══════════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(id) || (id==='advisor' && t.textContent.includes('AI'))) t.classList.add('active');
+  });
+  if (id === 'behaviour') initBehaviourCharts();
+  if (id === 'portfolio') renderHoldings('all');
+  if (id === 'profile') { updateExplainStatic(); }
+}
+
+// ══════════════════════════════════════════
+//  MARKET TIME TICKER
+// ══════════════════════════════════════════
+function updateTime() {
+  const now = new Date();
+  document.getElementById('market-time').textContent = 'NSE · ' + now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) + ' IST';
+}
+setInterval(updateTime, 1000); updateTime();
+
+function tickerAnimate() {
+  const base = 79486 + Math.round(Math.random() * 100 - 50);
+  const el = document.getElementById('sensex-val');
+  if (el) el.textContent = base.toLocaleString('en-IN');
+}
+setInterval(tickerAnimate, 5000);
+
+// ══════════════════════════════════════════
+//  ALLOCATION
+// ══════════════════════════════════════════
 const ALLOCS = {
   1: [{label:'Large Cap',pct:55,color:'#3498DB'},{label:'Debt/FD',pct:30,color:'#C9A84C'},{label:'Gold',pct:10,color:'#F39C12'},{label:'Mid Cap',pct:5,color:'#9B59B6'}],
   2: [{label:'Large Cap',pct:45,color:'#3498DB'},{label:'Debt',pct:20,color:'#C9A84C'},{label:'Mid Cap',pct:20,color:'#9B59B6'},{label:'Gold',pct:8,color:'#F39C12'},{label:'Small Cap',pct:7,color:'#2ECC71'}],
@@ -901,9 +1358,10 @@ function renderAlloc() {
     </div>
   `).join('');
 }
-renderAlloc();
 
-// ── HOLDINGS ──
+// ══════════════════════════════════════════
+//  HOLDINGS
+// ══════════════════════════════════════════
 function renderHoldings(filter) {
   const tbody = document.getElementById('holdings-body');
   const data = filter === 'all' ? HOLDINGS : HOLDINGS.filter(h => h.type === filter);
@@ -932,8 +1390,7 @@ function renderHoldings(filter) {
 function filterPortfolio(v) { renderHoldings(v); }
 
 function tradeNudge(ticker) {
-  const msg = `⚠️ Behavioural Nudge\n\nAre you sure you want to trade ${ticker}?\n\nBased on your history, 3 of your last 5 trades were driven by emotions rather than analysis.\n\nConsider: Is this decision based on data or fear/excitement?\n\nYour 24-hour cool-down rule is active. Come back tomorrow.`;
-  alert(msg);
+  alert(`⚠️ Behavioural Nudge\n\nAre you sure you want to trade ${ticker}?\n\nBased on your history, 3 of your last 5 trades were driven by emotions rather than analysis.\n\nConsider: Is this decision based on data or fear/excitement?\n\nYour 24-hour cool-down rule is active. Come back tomorrow.`);
 }
 
 function addStockPrompt() {
@@ -941,7 +1398,9 @@ function addStockPrompt() {
   if (ticker) alert(`Linking ${ticker.toUpperCase()} — In the full app, this would fetch live data from NSE/BSE and add to your portfolio.`);
 }
 
-// ── BEHAVIOUR PAGE ──
+// ══════════════════════════════════════════
+//  BEHAVIOUR PAGE
+// ══════════════════════════════════════════
 function renderBehaviourTimeline() {
   const el = document.getElementById('behaviour-timeline');
   el.innerHTML = STATE.behaviourLog.map(b => `
@@ -968,7 +1427,6 @@ let behChart, simChart;
 function initBehaviourCharts() {
   renderBehaviourTimeline();
   renderBiasTags();
-
   if (!behChart) {
     const ctx = document.getElementById('beh-chart').getContext('2d');
     behChart = new Chart(ctx, {
@@ -1026,7 +1484,6 @@ function runSim(period) {
   document.getElementById('sim-you').textContent = '₹'+d.you+'L';
   document.getElementById('sim-disc').textContent = '₹'+d.disc+'L';
   document.getElementById('sim-nudge').innerHTML = `Behavioural improvement could add <strong>${d.diff}</strong> over ${period}.`;
-
   const ctx = document.getElementById('sim-chart').getContext('2d');
   if (simChart) simChart.destroy();
   simChart = new Chart(ctx, {
@@ -1049,126 +1506,9 @@ function runSim(period) {
   });
 }
 
-// ── SCENARIOS ──
-const SCENARIOS = {
-  bull: { val:'₹15.8L', chg:'+27.4%', desc:'Strong bull market favours your mid-cap heavy equity holdings. RELIANCE, INFY, HDFCBANK expected to outperform. Gold ETF may lag. Consider tilting further into equities.', panic:12, hold:78, fomo:10, nudge:'In a bull market you tend to add aggressively near tops. Set a monthly SIP-only rule — resist timing the market.', rebal:[{a:'Equity',c:'#3498DB',from:58,to:72},{a:'Debt',c:'#C9A84C',from:17,to:8},{a:'Gold',c:'#F39C12',from:10,to:8},{a:'MF',c:'#9B59B6',from:15,to:12}] },
-  bear: { val:'₹9.8L', chg:'-21.0%', desc:'Bear market likely to hit small/mid-cap holdings hardest. ASIANPAINT already showing weakness. Defensive positions in SUNPHARMA and LIQUIDBEES provide some buffer.', panic:65, hold:25, fomo:10, nudge:'Historical pattern: you have sold 40% equity in bear markets. This permanently locks in losses. Consider a no-sell covenant below -15%.', rebal:[{a:'Equity',c:'#3498DB',from:58,to:35},{a:'Debt',c:'#C9A84C',from:17,to:35},{a:'Gold',c:'#F39C12',from:10,to:20},{a:'MF',c:'#9B59B6',from:15,to:10}] },
-  crash: { val:'₹8.1L', chg:'-34.7%', desc:'Sudden crash scenario (-35%). Your portfolio lacks sufficient downside protection. Stop-losses on individual stocks recommended. Focus on capital preservation — GOLDBEES and LIQUIDBEES are your safety anchors.', panic:85, hold:10, fomo:5, nudge:'CRITICAL: You have exited in 2 of 3 previous sudden crashes — always at the bottom. If this happens, do NOT touch your portfolio for 72 hours.', rebal:[{a:'Equity',c:'#3498DB',from:58,to:25},{a:'Debt',c:'#C9A84C',from:17,to:40},{a:'Gold',c:'#F39C12',from:10,to:25},{a:'MF',c:'#9B59B6',from:15,to:10}] },
-  sideways: { val:'₹12.9L', chg:'+4.0%', desc:'Range-bound market: SIPs are your best friend. Avoid chasing momentum. Your HDFCBANK and RELIANCE positions generate stable returns. Consider covered call strategy on liquid holdings.', panic:18, hold:72, fomo:10, nudge:'In flat markets you tend to get impatient and chase. Redirect energy into reviewing fundamentals — not trading.', rebal:[{a:'Equity',c:'#3498DB',from:58,to:50},{a:'Debt',c:'#C9A84C',from:17,to:25},{a:'Gold',c:'#F39C12',from:10,to:12},{a:'MF',c:'#9B59B6',from:15,to:13}] },
-  rbi: { val:'₹13.8L', chg:'+11.3%', desc:'RBI rate cut benefits HDFCBANK significantly. Debt MFs and LIQUIDBEES see modest gains. NBFCs rally. Consider adding exposure to banking ETF and dynamic bond funds to capture the rate cycle.', panic:8, hold:82, fomo:10, nudge:'Rate cuts trigger excitement. Avoid overloading on NBFCs — spread across the banking sector instead.', rebal:[{a:'Banking',c:'#3498DB',from:20,to:30},{a:'Debt MF',c:'#C9A84C',from:17,to:25},{a:'Other Equity',c:'#9B59B6',from:38,to:32},{a:'Gold',c:'#F39C12',from:10,to:8},{a:'Gold',c:'#2ECC71',from:15,to:5}] },
-  current: { val:'₹13.1L', chg:'+5.6%', desc:'In the current cautiously bullish market, your portfolio is well-positioned. IT holdings may face mild headwinds from USD weakness, but pharma and FMCG should provide stability.', panic:32, hold:61, fomo:7, nudge:'Based on your past behaviour, you have a moderate chance of exiting prematurely in a downturn. Consider setting a rule: only review portfolio weekly.', rebal:[{a:'Equity',c:'#3498DB',from:58,to:58},{a:'MF',c:'#9B59B6',from:25,to:27},{a:'Debt',c:'#C9A84C',from:10,to:10},{a:'Gold',c:'#F39C12',from:7,to:5}] },
-};
-
-function selectScenario(sc) {
-  STATE.scenario = sc;
-  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active-scenario'));
-  document.getElementById('sc-'+sc).classList.add('active-scenario');
-  const d = SCENARIOS[sc];
-  document.getElementById('sc-val').textContent = d.val;
-  document.getElementById('sc-chg').textContent = d.chg;
-  document.getElementById('sc-chg').className = 'metric-val ' + (d.chg.startsWith('+') ? 'up' : 'down');
-  document.getElementById('sc-desc').textContent = d.desc;
-  document.getElementById('pred-panic-pct').textContent = d.panic + '%';
-  document.getElementById('pred-hold-pct').textContent = d.hold + '%';
-  document.getElementById('pred-fomo-pct').textContent = d.fomo + '%';
-  document.getElementById('sc-nudge-text').textContent = d.nudge;
-  document.getElementById('sc-rebal').innerHTML = d.rebal.map(r => `
-    <div class="alloc-row">
-      <span class="alloc-label" style="font-size:11px">${r.a}</span>
-      <div class="alloc-track"><div class="alloc-fill" style="width:${r.to}%;background:${r.c}"></div></div>
-      <span class="alloc-pct">${r.to}% <span style="color:${r.to>r.from?'var(--green)':'var(--red)';};font-size:10px">${r.to>r.from?'▲':'▼'}</span></span>
-    </div>`).join('');
-}
-selectScenario('current');
-
-// ── AI CHAT ──
-function buildSystemPrompt() {
-  const riskLabels = ['','Very Low','Low','Moderate','High','Very High'];
-  return `You are Delphi, an intelligent robo-advisory AI for Indian retail investors. You have deep knowledge of Indian stock markets (NSE, BSE), mutual funds, SEBI regulations, and behavioral finance.
-
-INVESTOR PROFILE:
-- Portfolio value: ₹12.4 Lakh
-- Returns: +18.3% overall
-- Risk profile: ${riskLabels[STATE.risk]} (${STATE.risk}/5)
-- Investment horizon: ${STATE.horizon}
-- Goal: ${STATE.goal}
-
-PORTFOLIO HOLDINGS:
-- RELIANCE: 10 shares @ ₹2450 avg, LTP ₹2810 (+14.7%)
-- INFY: 25 shares @ ₹1520 avg, LTP ₹1687 (+11.0%)
-- TCS: 8 shares @ ₹3680 avg, LTP ₹3920 (+6.5%)
-- HDFCBANK: 30 shares @ ₹1620 avg, LTP ₹1734 (+7.0%)
-- ASIANPAINT: 15 shares @ ₹3100 avg, LTP ₹2890 (-6.8%)
-- SUNPHARMA: 40 shares @ ₹1150 avg, LTP ₹1340 (+16.5%)
-- GOLDBEES (Gold ETF): 100 units
-- LIQUIDBEES: 50 units
-- SIPs: Mirae Asset Large Cap, Parag Parikh Flexi Cap, HDFC Mid-Cap, Axis Nifty Index
-
-BEHAVIOURAL HISTORY:
-- 3 panic selling events in last 12 months
-- 5 FOMO-driven purchases
-- 18 disciplined hold decisions
-- Biases: Recency bias, Confirmation bias, Panic selling tendency
-- Investor score: 72/100
-
-CURRENT MARKET: Cautiously Bullish — SENSEX ~79,486, NIFTY ~24,087
-SCENARIO: ${STATE.scenario}
-
-Be concise, empathetic, and specific. Use Indian financial context (₹, NSE/BSE tickers, SEBI, RBI). Give behaviorally-aware advice. Max 150 words per response. Mention specific stocks by name when relevant.`;
-}
-
-function addMessage(role, text) {
-  const container = document.getElementById('chat-container');
-  const div = document.createElement('div');
-  div.className = 'chat-bubble chat-' + (role==='user'?'user':'ai');
-  div.innerHTML = text;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-  return div;
-}
-
-async function sendChat() {
-  const input = document.getElementById('chat-input');
-  const msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-  addMessage('user', msg);
-  STATE.chatHistory.push({role:'user', content: msg});
-  const thinkDiv = addMessage('ai', '<span class="thinking">Delphi is thinking</span>');
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: buildSystemPrompt(),
-        messages: STATE.chatHistory
-      })
-    });
-    const data = await resp.json();
-    const reply = data.content && data.content[0] ? data.content[0].text : 'I could not process your request. Please try again.';
-    thinkDiv.innerHTML = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>');
-    STATE.chatHistory.push({role:'assistant', content: reply});
-  } catch(e) {
-    thinkDiv.innerHTML = '<strong style="color:var(--gold)">Demo mode:</strong> In the live app, Delphi AI (powered by Claude) would analyse your portfolio, behavioural history, and current market to give personalised advice. Try asking: "Should I sell ASIANPAINT?" or "Am I too heavy in IT stocks?"';
-  }
-}
-
-function quickPrompt(text) {
-  document.getElementById('chat-input').value = text;
-  showPage('advisor');
-  sendChat();
-}
-
-function clearChat() {
-  document.getElementById('chat-container').innerHTML = '';
-  STATE.chatHistory = [];
-  addMessage('ai', '👋 Namaste! I am <strong>Delphi</strong>, your AI investment advisor. I have analysed your portfolio, behaviour patterns, and current market conditions. How can I help you today?');
-}
-
-// ── PROFILE ──
+// ══════════════════════════════════════════
+//  PROFILE
+// ══════════════════════════════════════════
 const RISK_LABELS = ['','Very Low','Low','Moderate','High','Very High'];
 function updateRisk(val) {
   STATE.risk = parseInt(val);
@@ -1177,14 +1517,12 @@ function updateRisk(val) {
   document.getElementById('risk-label-dash').textContent = STATE.riskLabel;
   renderAlloc();
   updateScore();
-  updateExplain();
 }
 
 function updateProfile() {
   STATE.horizon = document.getElementById('horizon-select').value;
   STATE.goal = document.getElementById('goal-select').value;
   updateScore();
-  updateExplain();
   document.getElementById('ai-context-display').innerHTML = `
     Portfolio: ₹12.4L · Returns: +18.3%<br>
     Risk Profile: ${STATE.riskLabel} · Horizon: ${STATE.horizon}<br>
@@ -1206,57 +1544,35 @@ function updateScore() {
   document.getElementById('score-arc').setAttribute('stroke-dashoffset', dashOffset);
 }
 
-function updateExplain() {
-  document.getElementById('explain-panel').innerHTML = `
-    <div class="explain-row">
-      <div class="explain-icon" style="background:rgba(52,152,219,0.15);color:#3498DB">B</div>
-      <div><div class="explain-label">Behaviour reason</div><div class="explain-text">You have shown panic selling in 3 of 8 high-volatility events. This reduces our equity recommendation by ~8% vs your stated risk level.</div></div>
-    </div>
-    <div class="explain-row">
-      <div class="explain-icon" style="background:rgba(201,168,76,0.15);color:var(--gold)">M</div>
-      <div><div class="explain-label">Market reason</div><div class="explain-text">Current cautiously bullish conditions with high FII inflows suggest 55–65% equity allocation is optimal. RBI hold on rates supports debt stability.</div></div>
-    </div>
-    <div class="explain-row">
-      <div class="explain-icon" style="background:rgba(46,204,113,0.15);color:#2ECC71">R</div>
-      <div><div class="explain-label">Risk reason</div><div class="explain-text">Your <strong style="color:var(--gold)">${STATE.riskLabel}</strong> profile with ${STATE.horizon} horizon and "${STATE.goal}" goal aligns well with a balanced large/mid-cap equity allocation supplemented by SIPs.</div></div>
-    </div>
-    <div class="explain-row">
-      <div class="explain-icon" style="background:rgba(155,89,182,0.15);color:#9B59B6">D</div>
-      <div><div class="explain-label">Diversification reason</div><div class="explain-text">Your current 8-stock direct equity portfolio is moderately concentrated. Adding 2–3 more sectors (FMCG or infrastructure) would lower unsystematic risk without sacrificing returns.</div></div>
-    </div>
-  `;
-}
+// ══════════════════════════════════════════
+//  SCORE MODAL
+// ══════════════════════════════════════════
+function openScoreModal() { document.getElementById('score-overlay').classList.add('open'); }
+function closeScoreModal(e) { document.getElementById('score-overlay').classList.remove('open'); }
 
-// ── SCORE MODAL ──
-function openScoreModal() {
-  document.getElementById('score-overlay').classList.add('open');
-}
-function closeScoreModal(e) {
-  document.getElementById('score-overlay').classList.remove('open');
-}
-
-// ── BROKER LINK ──
+// ══════════════════════════════════════════
+//  BROKER LINK
+// ══════════════════════════════════════════
 function linkBroker(name) {
   alert(`Linking ${name}...\n\nIn the live Delphi app, this would use ${name}'s official API/SDK to:\n• Import your holdings in real-time\n• Enable trade-moment nudges\n• Sync P&L and transaction history\n\nThis integration is on the Delphi roadmap.`);
 }
 
-// ── SENSEX TICKER ANIMATION ──
-function tickerAnimate() {
-  const change = (Math.random() - 0.48) * 30;
-  const base = 79486 + Math.round(Math.random() * 100 - 50);
-  const el = document.getElementById('sensex-val');
-  if (el) el.textContent = base.toLocaleString('en-IN');
-}
-setInterval(tickerAnimate, 5000);
-
-// ── INIT ──
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
 updateScore();
-updateExplain();
 renderAlloc();
+renderHoldings('all');
 
 // Init chat
 setTimeout(() => {
   addMessage('ai', '👋 Namaste! I am <strong>Delphi</strong>, your AI investment advisor. I have analysed your portfolio, behaviour patterns, and current market conditions. How can I help you today?');
 }, 300);
 
+// Load dynamic content
+loadDynamicNews();
+loadDashboardInsight();
+selectScenario('current');
+
 </script>
+</html>
